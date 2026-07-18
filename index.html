@@ -3037,33 +3037,35 @@
             localStorage.setItem('theme', newTheme);
         }
 
-        function loadHomeDashboard() {
-            const students = getSortedStudents(window._allStudentsCache || []);
+        async function loadHomeDashboard() {
+            window._allStudentsCache = await db.students.toArray();
+            const students = getSortedStudents(window._allStudentsCache);
             const total = students.length;
             document.getElementById('home-summary-students').textContent = total;
 
-            // Daily stats for today
+            // Daily stats — query DB directly
             const todayStr = currentDate;
+            const dayRecords = await db.attendance.where('date').equals(todayStr).toArray();
             let pCount = 0, aCount = 0;
-            document.querySelectorAll('#tab-daily .daily-student-card').forEach(card => {
-                const pBtn = card.querySelector('.present-btn');
-                const aBtn = card.querySelector('.absent-btn');
-                if (pBtn?.classList.contains('active')) pCount++;
-                if (aBtn?.classList.contains('active')) aCount++;
+            dayRecords.forEach(r => {
+                if (r.status === 'present') pCount++;
+                if (r.status === 'absent') aCount++;
             });
             document.getElementById('home-daily-p').textContent = pCount;
             document.getElementById('home-daily-a').textContent = aCount;
-            document.getElementById('home-daily-total').textContent = pCount + aCount;
+            document.getElementById('home-daily-total').textContent = total;
 
             // Monthly stats
             const monthStr = document.getElementById('attendance-month')?.value || '';
             if (monthStr) {
                 const [y, m] = monthStr.split('-').map(Number);
                 const daysInMonth = new Date(y, m, 0).getDate();
-                const holidayChips = document.getElementById('holiday-chips');
-                const holidayCount = holidayChips ? holidayChips.querySelectorAll('span').length : 0;
-                document.getElementById('home-monthly-working').textContent = daysInMonth - holidayCount;
-                document.getElementById('home-monthly-holidays').textContent = holidayCount;
+                const holidaysList = await db.holidays.where('date').startsWith(`${y}-${String(m).padStart(2,'0')}`).toArray();
+                const autoExcSun = document.getElementById('auto-sundays')?.checked !== false;
+                let hCount = holidaysList.length;
+                if (autoExcSun) hCount += getSundayDates(y, m).filter(d => !holidaysList.some(h => h.date === d)).length;
+                document.getElementById('home-monthly-working').textContent = daysInMonth - hCount;
+                document.getElementById('home-monthly-holidays').textContent = hCount;
             }
         }
 
