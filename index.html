@@ -699,7 +699,70 @@
         
         .tab-content.active {
             display: block;
-            animation: fadeIn 0.4s ease;
+        }
+
+        .home-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 0 4px 80px;
+        }
+        .home-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 16px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.06);
+            transition: all 0.2s ease;
+        }
+        .home-card:hover {
+            border-color: rgba(33,150,243,0.3);
+            transform: translateX(4px);
+        }
+        .home-card-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .home-card-icon i {
+            font-size: 22px;
+            color: white;
+        }
+        .home-card-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .home-card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        .home-card-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .home-card-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .home-card-stats .stat.present { color: #4CAF50; font-weight: 600; }
+        .home-card-stats .stat.absent { color: #f44336; font-weight: 600; }
+        .home-card-stats .stat.total { color: var(--text-primary); font-weight: 600; }
+        .home-card-arrow {
+            color: var(--text-secondary);
+            font-size: 14px;
+            opacity: 0.5;
         }
         
         @keyframes fadeIn {
@@ -1698,8 +1761,83 @@
         <i class="fas fa-moon" id="theme-icon"></i>
     </button>
 
+    <!-- Home Tab - Dashboard -->
+    <div id="tab-home" class="tab-content active">
+        <div class="container">
+            <div class="home-header" style="text-align:center; padding:24px 0 8px;">
+                <div style="font-size:36px; font-weight:800; background:linear-gradient(135deg,#2196F3,#10b981); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+                    SAT PRO
+                </div>
+                <p style="color:var(--text-secondary); font-size:14px; margin-top:4px;">Student Attendance Tracker</p>
+            </div>
+
+            <div id="home-quick-stats" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0; padding:0 4px;"></div>
+
+            <div class="home-grid">
+                <div class="home-card" onclick="switchTabFromHome('daily')">
+                    <div class="home-card-icon" style="background:linear-gradient(135deg,#2196F3,#1565C0);">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <div class="home-card-info">
+                        <div class="home-card-title">Daily</div>
+                        <div class="home-card-subtitle">Mark today's attendance</div>
+                        <div class="home-card-stats" id="home-daily-stats">
+                            <span class="stat present">P: <span id="home-daily-p">0</span></span>
+                            <span class="stat absent">A: <span id="home-daily-a">0</span></span>
+                            <span class="stat total">Total: <span id="home-daily-total">0</span></span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right home-card-arrow"></i>
+                </div>
+
+                <div class="home-card" onclick="switchTabFromHome('monthly')">
+                    <div class="home-card-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+                        <i class="fas fa-table"></i>
+                    </div>
+                    <div class="home-card-info">
+                        <div class="home-card-title">Monthly</div>
+                        <div class="home-card-subtitle">View monthly attendance table</div>
+                        <div class="home-card-stats" id="home-monthly-stats">
+                            <span>Working: <span id="home-monthly-working">0</span></span>
+                            <span>Holidays: <span id="home-monthly-holidays">0</span></span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right home-card-arrow"></i>
+                </div>
+
+                <div class="home-card" onclick="switchTabFromHome('summary')">
+                    <div class="home-card-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="home-card-info">
+                        <div class="home-card-title">Summary</div>
+                        <div class="home-card-subtitle">Working days &amp; reports</div>
+                        <div class="home-card-stats" id="home-summary-stats">
+                            <span>Total Students: <span id="home-summary-students">0</span></span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right home-card-arrow"></i>
+                </div>
+
+                <div class="home-card" onclick="switchTabFromHome('setup')">
+                    <div class="home-card-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <div class="home-card-info">
+                        <div class="home-card-title">Setup</div>
+                        <div class="home-card-subtitle">Manage students &amp; settings</div>
+                        <div class="home-card-stats" id="home-setup-stats">
+                            <span>Upload / Manage students</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right home-card-arrow"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Daily Attendance Tab -->
-    <div id="tab-daily" class="tab-content active daily-view">
+    <div id="tab-daily" class="tab-content daily-view">
         <div class="daily-top-header">
             <div class="daily-app-title">SAT PRO</div>
             <div class="daily-app-subtitle">Class Teacher's App</div>
@@ -2410,7 +2548,11 @@
     <!-- Bottom Navigation -->
 
     <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('daily')">
+        <div class="nav-item active" onclick="switchTab('home')">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('daily')">
             <i class="fas fa-calendar-day"></i>
             <span>Daily</span>
         </div>
@@ -2780,6 +2922,8 @@
             lockPortrait();
             window.addEventListener('resize', handleOrientationChange);
             handleOrientationChange();
+            // Cache students for Home dashboard
+            window._allStudentsCache = await db.students.toArray();
             checkAutoBackup();
             testGithubToken();
             const lastSync = await db.settings.get('lastGistSync');
@@ -2828,6 +2972,7 @@
 
             populateAcadYearSelect();
             loadDailyAttendance();
+            loadHomeDashboard();
             renderCustomCalendar();
         });
 
@@ -2892,16 +3037,52 @@
             localStorage.setItem('theme', newTheme);
         }
 
+        function loadHomeDashboard() {
+            const students = getSortedStudents(window._allStudentsCache || []);
+            const total = students.length;
+            document.getElementById('home-summary-students').textContent = total;
+
+            // Daily stats for today
+            const todayStr = currentDate;
+            let pCount = 0, aCount = 0;
+            document.querySelectorAll('#tab-daily .daily-student-card').forEach(card => {
+                const pBtn = card.querySelector('.present-btn');
+                const aBtn = card.querySelector('.absent-btn');
+                if (pBtn?.classList.contains('active')) pCount++;
+                if (aBtn?.classList.contains('active')) aCount++;
+            });
+            document.getElementById('home-daily-p').textContent = pCount;
+            document.getElementById('home-daily-a').textContent = aCount;
+            document.getElementById('home-daily-total').textContent = pCount + aCount;
+
+            // Monthly stats
+            const monthStr = document.getElementById('attendance-month')?.value || '';
+            if (monthStr) {
+                const [y, m] = monthStr.split('-').map(Number);
+                const daysInMonth = new Date(y, m, 0).getDate();
+                const holidayChips = document.getElementById('holiday-chips');
+                const holidayCount = holidayChips ? holidayChips.querySelectorAll('span').length : 0;
+                document.getElementById('home-monthly-working').textContent = daysInMonth - holidayCount;
+                document.getElementById('home-monthly-holidays').textContent = holidayCount;
+            }
+        }
+
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
-            event.currentTarget.classList.add('active');
-            document.getElementById('main-theme-toggle').style.display = tabName === 'daily' ? 'none' : 'flex';
+            const navItem = document.querySelector(`.nav-item[onclick*="'${tabName}'"]`);
+            if (navItem) navItem.classList.add('active');
+            document.getElementById('main-theme-toggle').style.display = (tabName === 'daily' || tabName === 'home') ? 'none' : 'flex';
+            if (tabName === 'home')   loadHomeDashboard();
             if (tabName === 'daily')   { closeCalendar(); loadDailyAttendance(); }
             if (tabName === 'monthly') loadMonthlyAttendance();
             if (tabName === 'setup')   renderStudentManagerList();
             if (tabName === 'summary') loadYearlySummary();
+        }
+
+        function switchTabFromHome(tabName) {
+            switchTab(tabName);
         }
 
         // ═══════════════════════════════════════════════════════════════
