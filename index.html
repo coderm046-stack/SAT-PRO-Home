@@ -2318,34 +2318,34 @@
                     <i class="fas fa-chevron-down toggle-arrow"></i>
                 </div>
                 <div class="setup-collapse-body" id="summary-monthly-body">
-                <div class="summary-grid">
+                <div class="summary-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <!-- Row 1: Present -->
                     <div class="summary-card gradient-blue">
                         <div class="summary-title">Total Present Boys</div>
                         <div class="summary-value" id="total-present-boys">0</div>
-                    </div>
-                    <div class="summary-card gradient-red">
-                        <div class="summary-title">Total Absent Boys</div>
-                        <div class="summary-value" id="total-absent-boys">0</div>
                     </div>
                     <div class="summary-card gradient-pink">
                         <div class="summary-title">Total Present Girls</div>
                         <div class="summary-value" id="total-present-girls">0</div>
                     </div>
-                    <div class="summary-card gradient-red">
-                        <div class="summary-title">Total Absent Girls</div>
-                        <div class="summary-value" id="total-absent-girls">0</div>
-                    </div>
                     <div class="summary-card gradient-green">
                         <div class="summary-title">Combine Present</div>
                         <div class="summary-value" id="combine-present-monthly">0</div>
+                    </div>
+                    <!-- Row 2: Absent -->
+                    <div class="summary-card gradient-red">
+                        <div class="summary-title">Total Absent Boys</div>
+                        <div class="summary-value" id="total-absent-boys">0</div>
+                    </div>
+                    <div class="summary-card gradient-red">
+                        <div class="summary-title">Total Absent Girls</div>
+                        <div class="summary-value" id="total-absent-girls">0</div>
                     </div>
                     <div class="summary-card gradient-red">
                         <div class="summary-title">Combine Absent</div>
                         <div class="summary-value" id="combine-absent-monthly">0</div>
                     </div>
-                </div>
-
-                <div class="summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <!-- Row 3: Percentages -->
                     <div class="percentage-card male">
                         <div class="summary-title">Present % of Boys</div>
                         <div class="percentage-value" id="boys-percentage">0%</div>
