@@ -1853,11 +1853,6 @@
         <div class="daily-top-header">
             <div class="daily-app-title"><i class="fas fa-calendar-day" style="margin-right:8px;"></i> Daily Attendance</div>
             <div class="daily-app-subtitle">Class Teacher's App</div>
-            <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-                <button class="daily-theme-toggle" style="position:static; width:44px; height:44px; font-size:18px;" onclick="toggleTheme()">
-                    <i class="fas fa-moon" id="daily-theme-icon"></i>
-                </button>
-            </div>
         </div>
 
         <!-- Hidden native input keeps compatibility with existing JS references -->
@@ -1870,6 +1865,9 @@
             <span><span class="rc-m">Boys</span> <span class="rc-val rc-m" id="rc-boys">0</span></span>
             <span class="rc-sep">|</span>
             <span><span class="rc-t">Total</span> <span class="rc-val rc-t" id="rc-total">0</span></span>
+            <button class="daily-theme-toggle" style="position:static; margin-left:auto; width:36px; height:36px; font-size:16px;" onclick="toggleTheme()">
+                <i class="fas fa-moon" id="daily-theme-icon"></i>
+            </button>
         </div>
 
         <!-- DATE BAR — always visible, shows today's date + toggle button -->
