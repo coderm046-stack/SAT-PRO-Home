@@ -649,6 +649,48 @@
             background-clip: text;
         }
         
+        .summary-buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 0;
+        }
+        .summary-btn-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        .summary-btn-card .summary-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            opacity: 1;
+        }
+        .summary-btn-card .summary-value {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #333;
+        }
+        .summary-btn-card .percentage-value {
+            font-size: 32px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #333;
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            background-clip: unset;
+        }
+        .summary-btn-card .percentage-value + p {
+            margin-top: 4px;
+            font-size: 10px;
+        }
+        
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -2318,48 +2360,48 @@
                     <i class="fas fa-chevron-down toggle-arrow"></i>
                 </div>
                 <div class="setup-collapse-body" id="summary-monthly-body">
-                <div class="summary-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="summary-buttons-grid">
                     <!-- Row 1: Present -->
-                    <div class="summary-card gradient-blue">
-                        <div class="summary-title">Total Present Boys</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#2196F3;">Total Present Boys</div>
                         <div class="summary-value" id="total-present-boys">0</div>
                     </div>
-                    <div class="summary-card gradient-pink">
-                        <div class="summary-title">Total Present Girls</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#ec4899;">Total Present Girls</div>
                         <div class="summary-value" id="total-present-girls">0</div>
                     </div>
-                    <div class="summary-card gradient-green">
-                        <div class="summary-title">Combine Present</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#10b981;">Combine Present</div>
                         <div class="summary-value" id="combine-present-monthly">0</div>
                     </div>
                     <!-- Row 2: Absent -->
-                    <div class="summary-card gradient-red">
-                        <div class="summary-title">Total Absent Boys</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#ef4444;">Total Absent Boys</div>
                         <div class="summary-value" id="total-absent-boys">0</div>
                     </div>
-                    <div class="summary-card gradient-red">
-                        <div class="summary-title">Total Absent Girls</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#ef4444;">Total Absent Girls</div>
                         <div class="summary-value" id="total-absent-girls">0</div>
                     </div>
-                    <div class="summary-card gradient-red">
-                        <div class="summary-title">Combine Absent</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#ef4444;">Combine Absent</div>
                         <div class="summary-value" id="combine-absent-monthly">0</div>
                     </div>
                     <!-- Row 3: Percentages -->
-                    <div class="percentage-card male">
-                        <div class="summary-title">Present % of Boys</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#2196F3;">Present % of Boys</div>
                         <div class="percentage-value" id="boys-percentage">0%</div>
-                        <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">(Subtract Holidays)</p>
+                        <p>(Subtract Holidays)</p>
                     </div>
-                    <div class="percentage-card female">
-                        <div class="summary-title">Present % of Girls</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#ec4899;">Present % of Girls</div>
                         <div class="percentage-value" id="girls-percentage">0%</div>
-                        <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">(Subtract Holidays)</p>
+                        <p>(Subtract Holidays)</p>
                     </div>
-                    <div class="percentage-card combined">
-                        <div class="summary-title">Combined Present %</div>
+                    <div class="summary-btn-card">
+                        <div class="summary-title" style="color:#10b981;">Combined Present %</div>
                         <div class="percentage-value" id="combined-percentage">0%</div>
-                        <p style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;">(Boys + Girls, Subtract Holidays)</p>
+                        <p>(Boys + Girls, Subtract Holidays)</p>
                     </div>
                 </div>
                 </div>
