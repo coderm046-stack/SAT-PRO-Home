@@ -2734,8 +2734,12 @@
                 const blob = new Blob([entry.value], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url; a.download = `SAT_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
-                URL.revokeObjectURL(url);
+                a.href = url; a.download = `SAT_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             } catch (e) { alert('Download failed: ' + e.message); }
         }
 
