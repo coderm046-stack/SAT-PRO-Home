@@ -3423,10 +3423,10 @@
             const btn = document.getElementById('absent-filter-btn');
             btn.classList.toggle('active');
             if (btn.classList.contains('active')) {
-                btn.textContent = '\u{1F441} SHOW ALL';
+                btn.innerHTML = '<i class="fas fa-eye"></i> All';
                 applyAbsentFilter();
             } else {
-                btn.textContent = '\u{1F441} SHOW ABSENT ONLY';
+                btn.innerHTML = '<i class="fas fa-eye"></i> Ab';
                 document.querySelectorAll('.daily-student-card').forEach(c => c.classList.remove('hidden'));
             }
         }
