@@ -2246,7 +2246,8 @@
                 <div class="setup-collapse-body" id="setup-github-body">
                 <p style="font-size:13px; color:var(--text-secondary); margin-bottom:14px;">
                     Your data is automatically backed up to a <strong>private GitHub Gist</strong> every time you close the app. 
-                    On next open, you can restore with one click — from any device.
+                    On next open, you can restore with one click — from any device. Even if you clear browser data,
+                    just re-enter your token and click <strong>Restore from Cloud</strong> — it will find your backup automatically.
                 </p>
                 <div class="github-token-input-wrap">
                     <input type="password" id="github-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" spellcheck="false">
@@ -2892,8 +2893,26 @@
         async function restoreFromGist() {
             const token = await getGithubToken();
             if (!token) { alert('Configure your GitHub token first.'); return; }
-            const gistId = await getGistId();
-            if (!gistId) { alert('No cloud backup found. Sync to cloud first.'); return; }
+            let gistId = await getGistId();
+
+            if (!gistId) {
+                // No stored Gist ID — search user's gists for our backup file
+                try {
+                    const listRes = await fetch('https://api.github.com/gists?per_page=100', {
+                        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (!listRes.ok) throw new Error('HTTP ' + listRes.status);
+                    const gists = await listRes.json();
+                    const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
+                    if (!found) { alert('No cloud backup found. Sync to cloud first.'); return; }
+                    gistId = found.id;
+                    await db.settings.put({ key: 'gistId', value: gistId });
+                } catch (e) {
+                    alert('Could not find cloud backup: ' + e.message);
+                    return;
+                }
+            }
+
             if (!confirm('⚠️ Restore from cloud will REPLACE all current data. Continue?')) return;
 
             try {
