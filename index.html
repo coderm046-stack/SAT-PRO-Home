@@ -2335,6 +2335,11 @@
                     <i class="fas fa-chevron-down toggle-arrow"></i>
                 </div>
                 <div class="setup-collapse-body" id="summary-monthly-body">
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Select Month</label>
+                    <input type="month" id="summary-month-select" onchange="onSummaryMonthChange()"
+                           style="width:100%; max-width:280px; padding:12px; border:2px solid var(--bg-tertiary); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); font-size:15px; font-family:'Inter',sans-serif;">
+                </div>
                 <div class="summary-buttons-grid">
                     <!-- Row 1: Present -->
                     <div class="summary-card gradient-blue">
@@ -3095,7 +3100,15 @@
             if (tabName === 'daily')   { closeCalendar(); loadDailyAttendance(); }
             if (tabName === 'monthly') loadMonthlyAttendance();
             if (tabName === 'setup')   renderStudentManagerList();
-            if (tabName === 'summary') loadYearlySummary();
+            if (tabName === 'summary') {
+                loadYearlySummary();
+                const sm = document.getElementById('summary-month-select');
+                if (sm && !sm.value) {
+                    sm.value = currentMonth;
+                    document.getElementById('attendance-month').value = currentMonth;
+                    calculateSummary();
+                }
+            }
         }
 
         function switchTabFromHome(tabName) {
@@ -4298,6 +4311,13 @@
             document.getElementById('max-present-girls').textContent = maxGirlsP;
             document.getElementById('max-absent-boys').textContent   = maxBoysA;
             document.getElementById('max-absent-girls').textContent  = maxGirlsA;
+        }
+
+        function onSummaryMonthChange() {
+            const val = document.getElementById('summary-month-select').value;
+            if (!val) return;
+            document.getElementById('attendance-month').value = val;
+            calculateSummary();
         }
 
         async function saveSettings() {}
