@@ -2478,68 +2478,62 @@
             </div>
 
             <!-- ── Low Attendance Report ───────────────────────────── -->
-            <div style="background:var(--bg-secondary); border-radius:16px; padding:20px; box-shadow:0 4px 16px rgba(0,0,0,0.12); margin-bottom:24px;">
-
-                <!-- Header -->
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-                    <div style="background:linear-gradient(135deg,#ef4444,#b91c1c); border-radius:10px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fas fa-user-times" style="color:white; font-size:16px;"></i>
-                    </div>
-                    <div>
-                        <div style="font-size:16px; font-weight:700; color:var(--text-primary);">Low Attendance Students</div>
-                        <div style="font-size:12px; color:var(--text-secondary);">Students below the selected threshold — across the chosen date range</div>
-                    </div>
+            <div class="setup-collapse-card" style="border-color: rgba(239,68,68,0.3);">
+                <div class="setup-collapse-header" id="summary-lowatt-header" onclick="toggleSetupCard('summary-lowatt')">
+                    <h3>
+                        <i class="fas fa-user-times" style="color:#ef4444;"></i> Low Attendance Students
+                        <span style="font-size:12px; font-weight:500; color:var(--text-secondary);">Students below the selected threshold</span>
+                    </h3>
+                    <i class="fas fa-chevron-down toggle-arrow"></i>
                 </div>
+                <div class="setup-collapse-body" id="summary-lowatt-body">
+                    <!-- Controls row -->
+                    <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                        <div style="flex:0 0 auto;">
+                            <label style="display:block; font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Threshold %</label>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <input type="number" id="low-att-threshold" value="50" min="1" max="100"
+                                    style="width:80px; padding:10px 12px; border:2px solid var(--bg-tertiary); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); font-size:15px; font-weight:700; text-align:center;">
+                                <span style="font-size:18px; font-weight:700; color:var(--text-secondary);">%</span>
+                            </div>
+                        </div>
+                        <button onclick="generateLowAttendanceList()"
+                            style="padding:10px 20px; background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-search"></i> Generate List
+                        </button>
+                        <button id="low-att-dl-excel" onclick="downloadLowAttExcel()" style="display:none; padding:10px 20px; background:linear-gradient(135deg,#16a34a,#15803d); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; gap:8px; align-items:center;">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </button>
+                        <button id="low-att-dl-pdf" onclick="downloadLowAttPDF()" style="display:none; padding:10px 20px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; gap:8px; align-items:center;">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                    </div>
 
-                <!-- Controls row -->
-                <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
-                    <div style="flex:0 0 auto;">
-                        <label style="display:block; font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Threshold %</label>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <input type="number" id="low-att-threshold" value="50" min="1" max="100"
-                                style="width:80px; padding:10px 12px; border:2px solid var(--bg-tertiary); border-radius:8px; background:var(--bg-primary); color:var(--text-primary); font-size:15px; font-weight:700; text-align:center;">
-                            <span style="font-size:18px; font-weight:700; color:var(--text-secondary);">%</span>
+                    <!-- Result area -->
+                    <div id="low-att-result" style="display:none;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                            <div id="low-att-summary-text" style="font-size:13px; color:var(--text-secondary);"></div>
+                        </div>
+                        <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--bg-tertiary);">
+                            <table id="low-att-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+                                <thead>
+                                    <tr style="background:linear-gradient(135deg,#ef4444,#b91c1c);">
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:left; border-radius:0;">#</th>
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Roll No</th>
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:left;">Student Name</th>
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Present Days</th>
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Working Days</th>
+                                        <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Attendance %</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="low-att-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="low-att-empty" style="display:none; padding:32px; text-align:center; color:#10b981; font-weight:600; font-size:15px;">
+                            <i class="fas fa-check-circle" style="font-size:32px; margin-bottom:8px; display:block;"></i>
+                            All students are above the threshold — great attendance!
                         </div>
                     </div>
-                    <button onclick="generateLowAttendanceList()"
-                        style="padding:10px 20px; background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-search"></i> Generate List
-                    </button>
-                    <button id="low-att-dl-excel" onclick="downloadLowAttExcel()" style="display:none; padding:10px 20px; background:linear-gradient(135deg,#16a34a,#15803d); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; gap:8px; align-items:center;">
-                        <i class="fas fa-file-excel"></i> Download Excel
-                    </button>
-                    <button id="low-att-dl-pdf" onclick="downloadLowAttPDF()" style="display:none; padding:10px 20px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; gap:8px; align-items:center;">
-                        <i class="fas fa-file-pdf"></i> Download PDF
-                    </button>
-                </div>
-
-                <!-- Result area -->
-                <div id="low-att-result" style="display:none;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                        <div id="low-att-summary-text" style="font-size:13px; color:var(--text-secondary);"></div>
-                    </div>
-                    <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--bg-tertiary);">
-                        <table id="low-att-table" style="width:100%; border-collapse:collapse; font-size:13px;">
-                            <thead>
-                                <tr style="background:linear-gradient(135deg,#ef4444,#b91c1c);">
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:left; border-radius:0;">#</th>
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Roll No</th>
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:left;">Student Name</th>
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Present Days</th>
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Working Days</th>
-                                    <th style="padding:10px 14px; color:white; font-weight:700; text-align:center;">Attendance %</th>
-                                </tr>
-                            </thead>
-                            <tbody id="low-att-tbody"></tbody>
-                        </table>
-                    </div>
-                    <div id="low-att-empty" style="display:none; padding:32px; text-align:center; color:#10b981; font-weight:600; font-size:15px;">
-                        <i class="fas fa-check-circle" style="font-size:32px; margin-bottom:8px; display:block;"></i>
-                        All students are above the threshold — great attendance!
-                    </div>
-                </div>
-            </div>
-
                 </div>
             </div>
         </div>
