@@ -1757,14 +1757,15 @@
         </div>
     </div>
 
-    <!-- Theme Toggle (For Monthly/Setup tabs) -->
-    <button class="theme-toggle" id="main-theme-toggle" onclick="toggleTheme()" style="display: none;">
-        <i class="fas fa-moon" id="theme-icon"></i>
-    </button>
-
     <!-- Home Tab - Dashboard -->
     <div id="tab-home" class="tab-content active">
-        <div class="container">
+        <div class="container" style="position:relative;">
+            <button class="btn btn-install" id="install-btn" style="display:none; position:absolute; top:12px; left:12px; font-size:12px; padding:8px 14px; z-index:10; white-space:nowrap;">
+                <i class="fas fa-download"></i> Install App
+            </button>
+            <button class="theme-toggle" id="main-theme-toggle" onclick="toggleTheme()" style="position:absolute; top:10px; right:10px; width:44px; height:44px; font-size:20px; z-index:10;">
+                <i class="fas fa-moon" id="theme-icon"></i>
+            </button>
             <div class="home-header" style="text-align:center; padding:24px 0 8px;">
                 <div style="font-size:36px; font-weight:800; background:linear-gradient(135deg,#2196F3,#10b981); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
                     SAT PRO
@@ -1970,9 +1971,6 @@
                 <h1><i class="fas fa-graduation-cap"></i> SAT PRO</h1>
                 <p style="opacity: 0.9; font-size: 14px; margin-top: 4px;">Track and manage student attendance efficiently</p>
                 <div class="btn-group">
-                    <button class="btn btn-install" id="install-btn" style="display: none;">
-                        <i class="fas fa-download"></i> Install App
-                    </button>
                     <button class="btn btn-primary" onclick="exportExcel()">
                         <i class="fas fa-file-excel"></i> Export Excel
                     </button>
@@ -3072,7 +3070,7 @@
             document.getElementById('tab-' + tabName).classList.add('active');
             const navItem = document.querySelector(`.nav-item[onclick*="'${tabName}'"]`);
             if (navItem) navItem.classList.add('active');
-            document.getElementById('main-theme-toggle').style.display = (tabName === 'daily' || tabName === 'home') ? 'none' : 'flex';
+            // theme toggle is now inside the home tab container
             if (tabName === 'home')   loadHomeDashboard();
             if (tabName === 'daily')   { closeCalendar(); loadDailyAttendance(); }
             if (tabName === 'monthly') loadMonthlyAttendance();
