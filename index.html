@@ -2862,18 +2862,35 @@
 
             try {
                 let gistId = await getGistId();
+                if (!gistId) {
+                    try {
+                        const listRes = await fetch('https://api.github.com/gists?per_page=100', {
+                            headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json' }
+                        });
+                        if (listRes.ok) {
+                            const gists = await listRes.json();
+                            const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
+                            if (found) {
+                                gistId = found.id;
+                                await db.settings.put({ key: 'gistId', value: gistId });
+                            }
+                        }
+                    } catch (_) {}
+                }
                 let res;
                 if (gistId) {
                     res = await fetch('https://api.github.com/gists/' + gistId, {
                         method: 'PATCH',
                         headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: content } } })
+                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: content } } }),
+                        keepalive: true
                     });
                 } else {
                     res = await fetch('https://api.github.com/gists', {
                         method: 'POST',
                         headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ public: false, files: { [GIST_FILENAME]: { content: content } } })
+                        body: JSON.stringify({ public: false, files: { [GIST_FILENAME]: { content: content } } }),
+                        keepalive: true
                     });
                 }
                 if (!res.ok) throw new Error('GitHub API error: HTTP ' + res.status);
@@ -2887,6 +2904,7 @@
                 if (!silent) alert('✅ Synced to cloud! Backup saved to your private GitHub Gist.');
             } catch (e) {
                 if (!silent) alert('❌ Sync failed: ' + e.message);
+                else console.warn('Gist auto-sync failed:', e.message);
             }
         }
 
@@ -2971,6 +2989,12 @@
                 saveAutoBackup();
                 syncToGist(true);
             });
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') {
+                    syncToGist(true);
+                }
+            });
+            setInterval(() => syncToGist(true), 180000);
             document.getElementById('daily-date').value = currentDate;
             document.getElementById('attendance-month').value = currentMonth;
             // Set date bar label on startup
