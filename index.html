@@ -2847,7 +2847,7 @@
             }
         }
 
-        async function syncToGist(silent) {
+        async function syncToGist(silent, useKeepalive) {
             const token = await getGithubToken();
             if (!token) { if (!silent) alert('Configure your GitHub token first in the Setup tab.'); return; }
 
@@ -2877,20 +2877,21 @@
                         }
                     } catch (_) {}
                 }
+                const opts = useKeepalive ? { keepalive: true } : {};
                 let res;
                 if (gistId) {
                     res = await fetch('https://api.github.com/gists/' + gistId, {
                         method: 'PATCH',
                         headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
                         body: JSON.stringify({ files: { [GIST_FILENAME]: { content: content } } }),
-                        keepalive: true
+                        ...opts
                     });
                 } else {
                     res = await fetch('https://api.github.com/gists', {
                         method: 'POST',
                         headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
                         body: JSON.stringify({ public: false, files: { [GIST_FILENAME]: { content: content } } }),
-                        keepalive: true
+                        ...opts
                     });
                 }
                 if (!res.ok) throw new Error('GitHub API error: HTTP ' + res.status);
@@ -2987,7 +2988,7 @@
             if (lastSync) document.getElementById('last-gist-sync').textContent = lastSync.value;
             window.addEventListener('pagehide', function() {
                 saveAutoBackup();
-                syncToGist(true);
+                syncToGist(true, true);
             });
             document.addEventListener('visibilitychange', function() {
                 if (document.visibilityState === 'hidden') {
@@ -2995,6 +2996,7 @@
                 }
             });
             setInterval(() => syncToGist(true), 180000);
+            setTimeout(() => syncToGist(true), 5000);
             document.getElementById('daily-date').value = currentDate;
             document.getElementById('attendance-month').value = currentMonth;
             // Set date bar label on startup
