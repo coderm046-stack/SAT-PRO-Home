@@ -573,6 +573,21 @@
             transform: scale(1.1);
         }
         
+        .holiday-merged {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            color: #dc2626 !important;
+            font-weight: 800;
+            font-size: 11px;
+            text-align: center;
+            vertical-align: middle;
+            background: rgba(239, 68, 68, 0.08) !important;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            border-left: 2px solid rgba(239, 68, 68, 0.25);
+            border-right: 2px solid rgba(239, 68, 68, 0.25);
+        }
+        
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -3600,6 +3615,11 @@
             const holidayDates  = new Set(holidaysList.map(h => h.date));
             const sundayDatesSet = new Set(getSundayDates(year, month));
             const autoExcSun    = document.getElementById('auto-sundays')?.checked !== false;
+            const holidayNameMap = new Map();
+            holidaysList.forEach(h => holidayNameMap.set(h.date, h.name));
+            if (autoExcSun) {
+                getSundayDates(year, month).forEach(d => { if (!holidayNameMap.has(d)) holidayNameMap.set(d, 'Sunday'); });
+            }
 
             // Build header
             let headerHTML = '<th>Roll No<br>Student Name<br>Gender</th>';
@@ -3617,7 +3637,8 @@
 
             // Build rows
             let bodyHTML = '';
-            for (let student of students) {
+            for (let si = 0; si < students.length; si++) {
+                const student = students[si];
                 // Previous month using pre-fetched map — O(n) scan but only once total
                 let prevMonthPresent = 0;
                 prevMonthMap.forEach((rec, key) => {
@@ -3631,6 +3652,12 @@
                 let totalPresent = 0, totalAbsent = 0;
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    if (holidayNameMap.has(dateStr)) {
+                        if (si === 0) {
+                            rowHTML += `<td rowspan="${students.length}" class="holiday-merged">${holidayNameMap.get(dateStr)}</td>`;
+                        }
+                        continue;
+                    }
                     const rec = thisMonthMap.get(`${dateStr}_${student.id}`);
                     const status = rec ? rec.status : '';
                     if (status === 'present') totalPresent++;
@@ -4383,6 +4410,22 @@
             return daysInMonth - excluded;
         }
 
+        // Returns Map<dateStr, holidayName> for a given month, including
+        // auto-excluded Sundays (labelled "SUNDAY") unless a custom holiday
+        // already covers that date. Used by exportExcel / exportPDF so the
+        // holiday name (e.g. "HOLIDAY DUE TO HEAVY RAIN") shows up in the
+        // day cell instead of being left blank.
+        async function getHolidayNameMapForMonth(year, month) {
+            const map = new Map();
+            const holidaysList = await getHolidaysForMonth(year, month);
+            holidaysList.forEach(h => map.set(h.date, h.name));
+            const autoExcSun = document.getElementById('auto-sundays')?.checked !== false;
+            if (autoExcSun) {
+                getSundayDates(year, month).forEach(d => { if (!map.has(d)) map.set(d, 'SUNDAY'); });
+            }
+            return map;
+        }
+
         async function exportExcel() {
             const cm = document.getElementById('attendance-month').value;
             const [year, month] = cm.split('-').map(Number);
@@ -4393,6 +4436,7 @@
             const prevMonthMap  = await fetchAllPreviousMonthsAttendance(year, month);
             const thisMonthMap  = await fetchMonthAttendanceMap(year, month);
             const workingDays   = await getWorkingDaysForMonth(year, month);
+            const holidayNameMap = await getHolidayNameMapForMonth(year, month);
 
             const titleRow  = [(classTitle ? `Attendance Report - ${classTitle}` : 'Attendance Report') + ` | Month: ${cm}`];
             const wdRow     = [`Working Days of this month = ${workingDays}`];
@@ -4411,6 +4455,7 @@
             // Per-day max tracking
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                if (holidayNameMap.has(dateStr)) continue;
                 let dBP=0, dGP=0, dBA=0, dGA=0;
                 for (let student of students) {
                     const rec = thisMonthMap.get(`${dateStr}_${student.id}`);
@@ -4424,7 +4469,8 @@
                 if (dGA>maxGirlsA) maxGirlsA=dGA;
             }
 
-            for (let student of students) {
+            for (let si = 0; si < students.length; si++) {
+                const student = students[si];
                 const isMale = student.gender.toLowerCase() === 'male';
                 let prevMonthPresent = 0;
                 prevMonthMap.forEach((rec, key) => { if (key.endsWith(`_${student.id}`) && rec.status==='present') prevMonthPresent++; });
@@ -4433,6 +4479,7 @@
                 let totalPresent=0, totalAbsent=0;
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    if (holidayNameMap.has(dateStr)) { row.push(''); continue; }
                     const rec = thisMonthMap.get(`${dateStr}_${student.id}`);
                     const s = rec?.status==='present' ? 'P' : rec?.status==='absent' ? 'A' : '';
                     row.push(s);
@@ -4480,6 +4527,27 @@
             data.push(['', 'Max Absent Girls (Single Day)',  '', maxGirlsA]);
 
             const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // ── Write holiday name vertically (one letter per cell, centered) ──
+            if (students.length > 0) {
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    if (!holidayNameMap.has(dateStr)) continue;
+                    const colIdx = 2 + d;
+                    const totalRows = students.length;
+                    const name = holidayNameMap.get(dateStr);
+                    if (name.length > totalRows) continue;
+                    const firstRow = 4;
+                    const center = Math.floor(totalRows / 2);
+                    const startIdx = center - Math.floor(name.length / 2);
+                    for (let i = 0; i < name.length; i++) {
+                        if (name[i] === ' ') continue;
+                        const ri = firstRow + startIdx + i;
+                        const addr = XLSX.utils.encode_cell({r: ri, c: colIdx});
+                        ws[addr] = { t: 's', v: name[i] };
+                    }
+                }
+            }
 
             // ── Apply cell styles ────────────────────────────────────────
             // Working days row (row index 1)
@@ -4591,6 +4659,7 @@
 
                 const prevMonthMap = await fetchAllPreviousMonthsAttendance(year, month);
                 const thisMonthMap = await fetchMonthAttendanceMap(year, month);
+                const holidayNameMap = await getHolidayNameMapForMonth(year, month);
 
                 // ── Accumulate totals while building per-day maxes ──────────
                 let boysPT=0, boysAT=0, girlsPT=0, girlsAT=0;
@@ -4600,6 +4669,7 @@
 
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    if (holidayNameMap.has(dateStr)) continue;
                     let dBP=0, dGP=0, dBA=0, dGA=0;
                     for (const student of students) {
                         const isMale = student.gender.toLowerCase() === 'male';
@@ -4626,8 +4696,21 @@
                 const avgCombinedP = workingDays > 0 ? ((boysPT + girlsPT) / workingDays).toFixed(2) : '0.00';
 
                 // ── Build student table rows (Attendance % at last column) ──
+                const pageH = doc.internal.pageSize.getHeight();
+                const estimatedRowH = 5; // mm: fontSize 7 + cellPadding 1 + grid
+                const rowsFirstPage = Math.floor((pageH - 22) / estimatedRowH);
+                const rowsOtherPage = Math.floor((pageH - 10) / estimatedRowH);
+                function getPageRange(si) {
+                    const totalRows = students.length;
+                    if (si < rowsFirstPage) return { start: 0, count: Math.min(rowsFirstPage, totalRows) };
+                    let offset = si - rowsFirstPage;
+                    let pageStart = rowsFirstPage;
+                    while (offset >= rowsOtherPage) { pageStart += rowsOtherPage; offset -= rowsOtherPage; }
+                    return { start: pageStart, count: Math.min(rowsOtherPage, totalRows - pageStart) };
+                }
                 const tableData = [];
-                for (const student of students) {
+                for (let si = 0; si < students.length; si++) {
+                    const student = students[si];
                     let prevMonthPresent = 0;
                     prevMonthMap.forEach((rec, key) => {
                         if (key.endsWith(`_${student.id}`) && rec.status === 'present') prevMonthPresent++;
@@ -4636,6 +4719,22 @@
                     let totalPresent = 0, totalAbsent = 0;
                     for (let day = 1; day <= daysInMonth; day++) {
                         const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                        if (holidayNameMap.has(dateStr)) {
+                            const name = holidayNameMap.get(dateStr);
+                            const totalRows = students.length;
+                            if (name.length > totalRows) { row.push(''); continue; }
+                            const range = getPageRange(si);
+                            if (name.length > range.count) { row.push(''); continue; }
+                            const localCenter = range.start + Math.floor(range.count / 2);
+                            const startIdx = localCenter - Math.floor(name.length / 2);
+                            const charIdx = si - startIdx;
+                            if (charIdx >= 0 && charIdx < name.length && name[charIdx] !== ' ') {
+                                row.push(name[charIdx]);
+                            } else {
+                                row.push('');
+                            }
+                            continue;
+                        }
                         const rec = thisMonthMap.get(`${dateStr}_${student.id}`);
                         const s   = rec?.status === 'present' ? 'P' : rec?.status === 'absent' ? 'A' : '';
                         row.push(s);
@@ -4656,7 +4755,6 @@
 
                 // ── Page header ─────────────────────────────────────────────
                 const pageW = doc.internal.pageSize.getWidth();
-                const pageH = doc.internal.pageSize.getHeight();
 
                 doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
                 doc.text((classTitle ? `Attendance Report - ${classTitle} | ` : 'Attendance Report | ') + cm, 14, 14);
@@ -4690,6 +4788,18 @@
                         if (c === totalCols - 4) { data.cell.styles.fillColor = [254,226,226]; data.cell.styles.textColor = [220,38,38];  data.cell.styles.fontStyle = 'bold'; } // Total Absent
                         if (c === totalCols - 2) { data.cell.styles.fillColor = [219,234,254]; data.cell.styles.textColor = [59,130,246]; data.cell.styles.fontStyle = 'bold'; } // Combine Present
                         if (c === totalCols - 1) { data.cell.styles.fillColor = [209,250,229]; data.cell.styles.textColor = [5,150,105];  data.cell.styles.fontStyle = 'bold'; } // Attendance %
+                        // Holiday cell — bold red, first row only shows name
+                        const dayIdx = c - 3;
+                        if (dayIdx >= 0 && dayIdx < daysInMonth) {
+                            const dStr = `${year}-${String(month).padStart(2,'0')}-${String(dayIdx + 1).padStart(2,'0')}`;
+                            if (holidayNameMap.has(dStr)) {
+                                data.cell.styles.fontStyle = 'bold';
+                                data.cell.styles.textColor = [220, 38, 38];
+                                data.cell.styles.fillColor = [254, 226, 226];
+                                data.cell.styles.halign = 'center';
+                                data.cell.styles.valign = 'middle';
+                            }
+                        }
                     }
                 });
 
