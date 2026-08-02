@@ -27,7 +27,6 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
     
     <script>
-        const GOOGLE_SCRIPT_URL = ''; // Cloud sync disabled
     </script>
     
     <style>
@@ -1805,7 +1804,7 @@
             <div id="home-quick-stats" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0; padding:0 4px;"></div>
 
             <div class="home-grid">
-                <div class="home-card" onclick="switchTabFromHome('daily')">
+                <div class="home-card" onclick="switchTab('daily')">
                     <div class="home-card-icon" style="background:linear-gradient(135deg,#2196F3,#1565C0);">
                         <i class="fas fa-calendar-day"></i>
                     </div>
@@ -1820,7 +1819,7 @@
                     </div>
                 </div>
 
-                <div class="home-card" onclick="switchTabFromHome('monthly')">
+                <div class="home-card" onclick="switchTab('monthly')">
                     <div class="home-card-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
                         <i class="fas fa-table"></i>
                     </div>
@@ -1834,7 +1833,7 @@
                     </div>
                 </div>
 
-                <div class="home-card" onclick="switchTabFromHome('summary')">
+                <div class="home-card" onclick="switchTab('summary')">
                     <div class="home-card-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
                         <i class="fas fa-calendar-check"></i>
                     </div>
@@ -1847,7 +1846,7 @@
                     </div>
                 </div>
 
-                <div class="home-card" onclick="switchTabFromHome('setup')">
+                <div class="home-card" onclick="switchTab('setup')">
                     <div class="home-card-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">
                         <i class="fas fa-cog"></i>
                     </div>
@@ -2603,13 +2602,6 @@
     </div>
 
     <script>
-        // Cloud sync removed — app uses local IndexedDB only
-        const cloudEnabled = false;
-        function updateSyncBadge() {}
-        async function gsFetch() { return null; }
-        async function cloudSaveAttendance() {}
-        async function cloudDeleteAttendance() {}
-        async function cloudSaveStudents() {}
         // ═══════════════════════════════════════════════════════════════
         // DATABASE SETUP — v5 uses stable studentId (not rollNo) for attendance
         // This means roll number changes NEVER corrupt historical data
@@ -2694,6 +2686,13 @@
             }
         }
 
+        function getJsPDF() {
+            if (window.jspdf && typeof window.jspdf.jsPDF === 'function') return window.jspdf.jsPDF;
+            if (typeof window.jsPDF === 'function') return window.jsPDF;
+            if (window.jsPDF && typeof window.jsPDF.jsPDF === 'function') return window.jsPDF.jsPDF;
+            return null;
+        }
+
         function fmtDate(d) {
             return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
         }
@@ -2769,41 +2768,48 @@
                 const entry = await db.settings.get('autoBackup');
                 if (!entry) return;
                 const backup = JSON.parse(entry.value);
-                if (!backup.version || !Array.isArray(backup.students) || !Array.isArray(backup.attendance)) {
-                    alert('❌ Invalid auto-backup.'); return;
-                }
                 if (!confirm('⚠️ Restore will REPLACE all current data. Continue?')) return;
-                await db.students.clear(); await db.attendance.clear(); await db.holidays.clear();
-                await db.settings.clear(); await db.removedStudents.clear();
-                const stripAutoId = arr => arr.map(({ id, ...rest }) => rest);
-                if (backup.students.length) await db.students.bulkPut(backup.students);
-                if (backup.attendance.length) {
-                    const isOldFormat = backup.attendance[0].rollNo !== undefined && backup.attendance[0].studentId === undefined;
-                    if (isOldFormat) {
-                        const rollNoToId = {};
-                        backup.students.forEach(s => { rollNoToId[s.rollNo] = s.id; });
-                        const migrated = backup.attendance
-                            .map(a => ({ date: a.date, studentId: rollNoToId[a.rollNo], status: a.status, remark: a.remark }))
-                            .filter(a => a.studentId !== undefined);
-                        if (migrated.length) await db.attendance.bulkAdd(migrated);
-                    } else {
-                        await db.attendance.bulkAdd(stripAutoId(backup.attendance));
-                    }
+                if (await restoreFromJSON(backup)) {
+                    alert(`✅ Restore complete!\n\nStudents: ${backup.students.length} | Records: ${backup.attendance.length} | Holidays: ${backup.holidays?.length || 0}\n\nBackup from: ${backup.exportedAt ? fmtDateTime(new Date(backup.exportedAt)) : 'unknown'}`);
+                    dismissAutoBackup();
                 }
-                if (backup.holidays?.length) await db.holidays.bulkAdd(stripAutoId(backup.holidays));
-                if (backup.settings?.length) for (const s of backup.settings) {
-                    if (s.key === 'githubToken' || s.key === 'gistId') continue;
-                    await db.settings.put({ key: s.key, value: s.value });
-                }
-                if (backup.removedStudents?.length) await db.removedStudents.bulkAdd(stripAutoId(backup.removedStudents));
-                alert(`✅ Restore complete!\n\nStudents: ${backup.students.length} | Records: ${backup.attendance.length} | Holidays: ${backup.holidays?.length || 0}\n\nBackup from: ${backup.exportedAt ? fmtDateTime(new Date(backup.exportedAt)) : 'unknown'}`);
-                loadDailyAttendance(); renderStudentManagerList();
-                dismissAutoBackup();
             } catch (e) { alert('❌ Restore failed: ' + e.message); }
         }
 
         function dismissAutoBackup() {
             document.getElementById('auto-backup-banner').style.display = 'none';
+        }
+
+        const stripAutoId = arr => arr.map(({ id, ...rest }) => rest);
+
+        async function restoreFromJSON(backup) {
+            if (!backup.version || !Array.isArray(backup.students) || !Array.isArray(backup.attendance)) {
+                alert('❌ Invalid backup.'); return false;
+            }
+            await db.students.clear(); await db.attendance.clear(); await db.holidays.clear();
+            await db.settings.clear(); await db.removedStudents.clear();
+            if (backup.students.length) await db.students.bulkPut(backup.students);
+            if (backup.attendance.length) {
+                const isOldFormat = backup.attendance[0].rollNo !== undefined && backup.attendance[0].studentId === undefined;
+                if (isOldFormat) {
+                    const rollNoToId = {};
+                    backup.students.forEach(s => { rollNoToId[s.rollNo] = s.id; });
+                    const migrated = backup.attendance
+                        .map(a => ({ date: a.date, studentId: rollNoToId[a.rollNo], status: a.status, remark: a.remark }))
+                        .filter(a => a.studentId !== undefined);
+                    if (migrated.length) await db.attendance.bulkAdd(migrated);
+                } else {
+                    await db.attendance.bulkAdd(stripAutoId(backup.attendance));
+                }
+            }
+            if (backup.holidays?.length) await db.holidays.bulkAdd(stripAutoId(backup.holidays));
+            if (backup.settings?.length) for (const s of backup.settings) {
+                if (s.key === 'githubToken' || s.key === 'gistId') continue;
+                await db.settings.put({ key: s.key, value: s.value });
+            }
+            if (backup.removedStudents?.length) await db.removedStudents.bulkAdd(stripAutoId(backup.removedStudents));
+            loadDailyAttendance(); renderStudentManagerList();
+            return true;
         }
 
         function toggleSetupCard(id) {
@@ -2958,34 +2964,9 @@
                 const raw = gist.files[GIST_FILENAME];
                 if (!raw) throw new Error('Backup file not found in gist');
                 const backup = JSON.parse(raw.content);
-                if (!backup.version || !Array.isArray(backup.students) || !Array.isArray(backup.attendance)) {
-                    alert('❌ Invalid backup in cloud.'); return;
+                if (await restoreFromJSON(backup)) {
+                    alert('✅ Restore from cloud complete!\n\nStudents: ' + backup.students.length + ' | Records: ' + backup.attendance.length + ' | Holidays: ' + (backup.holidays?.length || 0));
                 }
-                await db.students.clear(); await db.attendance.clear(); await db.holidays.clear();
-                await db.settings.clear(); await db.removedStudents.clear();
-                const stripAutoId = arr => arr.map(({ id, ...rest }) => rest);
-                if (backup.students.length) await db.students.bulkPut(backup.students);
-                if (backup.attendance.length) {
-                    const isOldFormat = backup.attendance[0].rollNo !== undefined && backup.attendance[0].studentId === undefined;
-                    if (isOldFormat) {
-                        const rollNoToId = {};
-                        backup.students.forEach(s => { rollNoToId[s.rollNo] = s.id; });
-                        const migrated = backup.attendance
-                            .map(a => ({ date: a.date, studentId: rollNoToId[a.rollNo], status: a.status, remark: a.remark }))
-                            .filter(a => a.studentId !== undefined);
-                        if (migrated.length) await db.attendance.bulkAdd(migrated);
-                    } else {
-                        await db.attendance.bulkAdd(stripAutoId(backup.attendance));
-                    }
-                }
-                if (backup.holidays?.length) await db.holidays.bulkAdd(stripAutoId(backup.holidays));
-                if (backup.settings?.length) for (const s of backup.settings) {
-                    if (s.key === 'githubToken' || s.key === 'gistId') continue;
-                    await db.settings.put({ key: s.key, value: s.value });
-                }
-                if (backup.removedStudents?.length) await db.removedStudents.bulkAdd(stripAutoId(backup.removedStudents));
-                alert('✅ Restore from cloud complete!\n\nStudents: ' + backup.students.length + ' | Records: ' + backup.attendance.length + ' | Holidays: ' + (backup.holidays?.length || 0));
-                loadDailyAttendance(); renderStudentManagerList();
             } catch (e) {
                 alert('❌ Restore from cloud failed: ' + e.message);
             }
@@ -3169,10 +3150,6 @@
                     calculateSummary();
                 }
             }
-        }
-
-        function switchTabFromHome(tabName) {
-            switchTab(tabName);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -3718,11 +3695,6 @@
             const [year, month] = val.split('-').map(Number);
             return { year, month };
         }
-        function countSundaysInMonth(year, month) {
-            const days = new Date(year, month, 0).getDate(); let s = 0;
-            for (let d = 1; d <= days; d++) if (new Date(year, month-1, d).getDay() === 0) s++;
-            return s;
-        }
         function getSundayDates(year, month) {
             const days = new Date(year, month, 0).getDate(); const arr = [];
             for (let d = 1; d <= days; d++) {
@@ -3979,169 +3951,6 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // DOWNLOAD ALL REMARKS (EXCEL) — grouped by student, newest first
-        // ═══════════════════════════════════════════════════════════════
-        async function downloadAllRemarks() {
-            const students = getSortedStudents(await db.students.toArray());
-            if (!students.length) { alert('No students found.'); return; }
-
-            // Fetch ALL attendance records that have a non-empty remark
-            const allRecords = await db.attendance
-                .where('remark').above('')
-                .filter(r => r.remark && r.remark.trim() !== '')
-                .toArray();
-            if (!allRecords.length) { alert('No remarks found for any student.'); return; }
-
-            // Group by studentId
-            const byStudent = {};
-            for (const r of allRecords) {
-                if (!byStudent[r.studentId]) byStudent[r.studentId] = [];
-                byStudent[r.studentId].push(r);
-            }
-
-            const days  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-            const headerRow = ['Roll No','Student Name','Gender','Date','Day','Status','Remark'];
-            const data = [headerRow];
-
-            for (const student of students) {
-                const records = byStudent[student.id] || [];
-                if (!records.length) continue;
-                // Sort by date descending (newest first)
-                records.sort((a, b) => b.date.localeCompare(a.date));
-                for (const r of records) {
-                    const d = new Date(r.date + 'T00:00:00');
-                    const day = days[d.getDay()];
-                    const dd = String(d.getDate()).padStart(2,'0');
-                    const mm = String(d.getMonth()+1).padStart(2,'0');
-                    const yyyy = d.getFullYear();
-                    const dateLabel = `${dd}/${mm}/${yyyy}`;
-                    const status = r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : '-';
-                    data.push([student.rollNo, student.name, student.gender, dateLabel, day, status, r.remark]);
-                }
-            }
-
-            if (data.length === 1) { alert('No remarks found.'); return; }
-
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            ws['!cols'] = [{wch:10},{wch:28},{wch:10},{wch:14},{wch:8},{wch:12},{wch:40}];
-            // Style header row — purple
-            const headerRange = XLSX.utils.decode_range(ws['!ref']);
-            for (let c = headerRange.s.c; c <= headerRange.e.c; c++) {
-                const addr = XLSX.utils.encode_cell({r:0, c});
-                if (ws[addr]) ws[addr].s = { font:{bold:true, color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'7C3AED'}}, alignment:{horizontal:'center'} };
-            }
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'All Remarks');
-            XLSX.writeFile(wb, `All_Student_Remarks_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // DOWNLOAD ALL REMARKS (PDF) — grouped by student, newest first
-        // ═══════════════════════════════════════════════════════════════
-        async function downloadAllRemarksPDF() {
-            try {
-                let JsPDF = null;
-                if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
-                    JsPDF = window.jspdf.jsPDF;
-                } else if (typeof window.jsPDF === 'function') {
-                    JsPDF = window.jsPDF;
-                } else if (window.jsPDF && typeof window.jsPDF.jsPDF === 'function') {
-                    JsPDF = window.jsPDF.jsPDF;
-                }
-                if (!JsPDF) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
-
-                const doc = new JsPDF('p', 'mm', 'a4');
-                if (typeof doc.autoTable !== 'function') {
-                    alert('PDF table plugin (AutoTable) not loaded. Please refresh the page and try again.'); return;
-                }
-
-                const students = getSortedStudents(await db.students.toArray());
-                if (!students.length) { alert('No students found.'); return; }
-
-                const allRecords = await db.attendance
-                    .where('remark').above('')
-                    .filter(r => r.remark && r.remark.trim() !== '')
-                    .toArray();
-                if (!allRecords.length) { alert('No remarks found for any student.'); return; }
-
-                const byStudent = {};
-                for (const r of allRecords) {
-                    if (!byStudent[r.studentId]) byStudent[r.studentId] = [];
-                    byStudent[r.studentId].push(r);
-                }
-
-                const days  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-                const tableData = [];
-                const studentNames = [];
-
-                for (const student of students) {
-                    const records = byStudent[student.id] || [];
-                    if (!records.length) continue;
-                    records.sort((a, b) => b.date.localeCompare(a.date));
-                    studentNames.push(student);
-                    for (const r of records) {
-                        const d = new Date(r.date + 'T00:00:00');
-                        const day = days[d.getDay()];
-                        const dd = String(d.getDate()).padStart(2,'0');
-                        const mm = String(d.getMonth()+1).padStart(2,'0');
-                        const yyyy = d.getFullYear();
-                        const dateLabel = `${dd}/${mm}/${yyyy}`;
-                        const status = r.status === 'present' ? 'Present' : r.status === 'absent' ? 'Absent' : '-';
-                        tableData.push([student.rollNo, student.name, student.gender, dateLabel, day, status, r.remark]);
-                    }
-                }
-
-                if (!tableData.length) { alert('No remarks found.'); return; }
-
-                const headers = [['Roll No','Student Name','Gender','Date','Day','Status','Remark']];
-
-                const pageW = doc.internal.pageSize.getWidth();
-                const today = new Date();
-                const todayStr = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
-
-                doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 23, 42);
-                doc.text('All Student Remarks Report', 14, 14);
-                doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100);
-                doc.text(`Generated: ${todayStr}  |  Total remarks: ${tableData.length}  |  Total students: ${studentNames.length}`, 14, 20);
-
-                doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
-                doc.line(14, 23, pageW - 14, 23);
-                doc.setTextColor(0, 0, 0);
-
-                doc.autoTable({
-                    head: headers,
-                    body: tableData,
-                    startY: 26,
-                    theme: 'grid',
-                    styles: { fontSize: 7, cellPadding: 1.5, halign: 'center', valign: 'middle', overflow: 'linebreak' },
-                    headStyles: { fillColor: [124, 58, 237], fontStyle: 'bold', fontSize: 7, halign: 'center' },
-                    columnStyles: {
-                        0: { cellWidth: 14, halign: 'center' },
-                        1: { cellWidth: 28, halign: 'left' },
-                        2: { cellWidth: 14, halign: 'center' },
-                        3: { cellWidth: 18, halign: 'center' },
-                        4: { cellWidth: 12, halign: 'center' },
-                        5: { cellWidth: 14, halign: 'center' },
-                        6: { cellWidth: 'auto', halign: 'left' }
-                    },
-                    didParseCell(data) {
-                        if (data.row.section !== 'body') return;
-                        if (data.column.index === 6) {
-                            data.cell.styles.halign = 'left';
-                        }
-                    }
-                });
-
-                doc.save(`All_Student_Remarks_${new Date().toISOString().split('T')[0]}.pdf`);
-
-            } catch (err) {
-                console.error('PDF remarks export error:', err);
-                alert('PDF export failed:\n' + err.message + '\n\nPlease refresh and try again.');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
         // DOWNLOAD REMARKS BY DATE RANGE (Excel)
         // ═══════════════════════════════════════════════════════════════
         async function downloadRemarksByDateRangeExcel() {
@@ -4209,14 +4018,7 @@
             if (fromDate > toDate) { alert('From date must be before or equal to To date.'); return; }
 
             try {
-                let JsPDF = null;
-                if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
-                    JsPDF = window.jspdf.jsPDF;
-                } else if (typeof window.jsPDF === 'function') {
-                    JsPDF = window.jsPDF;
-                } else if (window.jsPDF && typeof window.jsPDF.jsPDF === 'function') {
-                    JsPDF = window.jsPDF.jsPDF;
-                }
+                const JsPDF = getJsPDF();
                 if (!JsPDF) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
 
                 const doc = new JsPDF('p', 'mm', 'a4');
@@ -4316,7 +4118,7 @@
             const daysInMonth = new Date(year, month, 0).getDate();
 
             const manualHolidays = await getHolidaysForMonth(year, month);
-            const sundaysCount   = countSundaysInMonth(year, month);
+            const sundaysCount   = getSundayDates(year, month).length;
             const autoExcSun     = document.getElementById('auto-sundays')?.checked !== false;
             const manualHolDates = new Set(manualHolidays.map(h => h.date));
 
@@ -4392,9 +4194,6 @@
             calculateSummary();
         }
 
-        async function saveSettings() {}
-        async function loadSettings() {}
-
         // ═══════════════════════════════════════════════════════════════
         // EXPORT EXCEL — batch query
         // ═══════════════════════════════════════════════════════════════
@@ -4415,16 +4214,6 @@
         // already covers that date. Used by exportExcel / exportPDF so the
         // holiday name (e.g. "HOLIDAY DUE TO HEAVY RAIN") shows up in the
         // day cell instead of being left blank.
-        async function getHolidayNameMapForMonth(year, month) {
-            const map = new Map();
-            const holidaysList = await getHolidaysForMonth(year, month);
-            holidaysList.forEach(h => map.set(h.date, h.name));
-            const autoExcSun = document.getElementById('auto-sundays')?.checked !== false;
-            if (autoExcSun) {
-                getSundayDates(year, month).forEach(d => { if (!map.has(d)) map.set(d, 'SUNDAY'); });
-            }
-            return map;
-        }
 
         async function exportExcel() {
             const cm = document.getElementById('attendance-month').value;
@@ -4436,7 +4225,11 @@
             const prevMonthMap  = await fetchAllPreviousMonthsAttendance(year, month);
             const thisMonthMap  = await fetchMonthAttendanceMap(year, month);
             const workingDays   = await getWorkingDaysForMonth(year, month);
-            const holidayNameMap = await getHolidayNameMapForMonth(year, month);
+            const holidayNameMap = new Map();
+            (await getHolidaysForMonth(year, month)).forEach(h => holidayNameMap.set(h.date, h.name));
+            if (document.getElementById('auto-sundays')?.checked !== false) {
+                getSundayDates(year, month).forEach(d => { if (!holidayNameMap.has(d)) holidayNameMap.set(d, 'SUNDAY'); });
+            }
 
             const titleRow  = [(classTitle ? `Attendance Report - ${classTitle}` : 'Attendance Report') + ` | Month: ${cm}`];
             const wdRow     = [`Working Days of this month = ${workingDays}`];
@@ -4633,15 +4426,7 @@
         // ═══════════════════════════════════════════════════════════════
         async function exportPDF() {
             try {
-                // ── Robust jsPDF constructor detection (handles all UMD variants) ──
-                let JsPDF = null;
-                if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
-                    JsPDF = window.jspdf.jsPDF;
-                } else if (typeof window.jsPDF === 'function') {
-                    JsPDF = window.jsPDF;
-                } else if (window.jsPDF && typeof window.jsPDF.jsPDF === 'function') {
-                    JsPDF = window.jsPDF.jsPDF;
-                }
+                const JsPDF = getJsPDF();
                 if (!JsPDF) { alert('PDF library not loaded yet. Please wait a moment and try again.'); return; }
 
                 const doc = new JsPDF('l', 'mm', 'a4');
@@ -4659,7 +4444,11 @@
 
                 const prevMonthMap = await fetchAllPreviousMonthsAttendance(year, month);
                 const thisMonthMap = await fetchMonthAttendanceMap(year, month);
-                const holidayNameMap = await getHolidayNameMapForMonth(year, month);
+                const holidayNameMap = new Map();
+                (await getHolidaysForMonth(year, month)).forEach(h => holidayNameMap.set(h.date, h.name));
+                if (document.getElementById('auto-sundays')?.checked !== false) {
+                    getSundayDates(year, month).forEach(d => { if (!holidayNameMap.has(d)) holidayNameMap.set(d, 'SUNDAY'); });
+                }
 
                 // ── Accumulate totals while building per-day maxes ──────────
                 let boysPT=0, boysAT=0, girlsPT=0, girlsAT=0;
@@ -4910,40 +4699,9 @@
             reader.onload = async function(e) {
                 try {
                     const backup = JSON.parse(e.target.result);
-                    if (!backup.version || !Array.isArray(backup.students) || !Array.isArray(backup.attendance)) {
-                        alert('❌ Invalid backup file.'); return;
+                    if (await restoreFromJSON(backup)) {
+                        alert(`✅ Restore complete!\n\nStudents: ${backup.students.length} | Records: ${backup.attendance.length} | Holidays: ${backup.holidays?.length || 0}\n\nBackup from: ${backup.exportedAt ? fmtDateTime(new Date(backup.exportedAt)) : 'unknown'}`);
                     }
-                    await db.students.clear(); await db.attendance.clear(); await db.holidays.clear(); await db.settings.clear(); await db.removedStudents.clear();
-
-                    const stripAutoId = arr => arr.map(({ id, ...rest }) => rest);
-
-                    // Restore students WITH original IDs so attendance studentId refs remain valid
-                    if (backup.students.length) await db.students.bulkPut(backup.students);
-
-                    // Handle both v1 (rollNo) and v2 (studentId) backup formats
-                    if (backup.attendance.length) {
-                        const isOldFormat = backup.attendance[0].rollNo !== undefined && backup.attendance[0].studentId === undefined;
-                        if (isOldFormat) {
-                            // Migrate: map rollNo → studentId using restored students
-                            const rollNoToId = {};
-                            backup.students.forEach(s => { rollNoToId[s.rollNo] = s.id; });
-                            const migrated = backup.attendance
-                                .map(a => ({ date: a.date, studentId: rollNoToId[a.rollNo], status: a.status, remark: a.remark }))
-                                .filter(a => a.studentId !== undefined);
-                            if (migrated.length) await db.attendance.bulkAdd(migrated);
-                        } else {
-                            await db.attendance.bulkAdd(stripAutoId(backup.attendance));
-                        }
-                    }
-                    if (backup.holidays?.length) await db.holidays.bulkAdd(stripAutoId(backup.holidays));
-                    if (backup.settings?.length) for (const s of backup.settings) {
-                        if (s.key === 'githubToken' || s.key === 'gistId') continue;
-                        await db.settings.put({ key: s.key, value: s.value });
-                    }
-                    if (backup.removedStudents?.length) await db.removedStudents.bulkAdd(stripAutoId(backup.removedStudents));
-
-                    alert(`✅ Restore complete!\n\nStudents: ${backup.students.length} | Records: ${backup.attendance.length} | Holidays: ${backup.holidays?.length || 0}\n\nBackup from: ${backup.exportedAt ? fmtDateTime(new Date(backup.exportedAt)) : 'unknown'}`);
-                    loadDailyAttendance(); renderStudentManagerList();
                 } catch (err) { alert('❌ Restore failed: ' + err.message); }
             };
             reader.readAsText(file);
@@ -4951,7 +4709,8 @@
 
         async function clearAllData() {
             if (!confirm('Clear ALL data? This cannot be undone!')) return;
-            await db.students.clear(); await db.attendance.clear(); await db.settings.clear();
+            await db.students.clear(); await db.attendance.clear(); await db.holidays.clear();
+            await db.settings.clear(); await db.removedStudents.clear();
             alert('All data cleared.'); loadDailyAttendance();
         }
 
@@ -5085,10 +4844,7 @@
             const { list, threshold, months, totalWorkingDays } = _lowAttData;
             if (!list || !list.length) return;
 
-            let JsPDF = null;
-            if (window.jspdf && typeof window.jspdf.jsPDF === 'function') JsPDF = window.jspdf.jsPDF;
-            else if (typeof window.jsPDF === 'function') JsPDF = window.jsPDF;
-            else if (window.jsPDF && typeof window.jsPDF.jsPDF === 'function') JsPDF = window.jsPDF.jsPDF;
+            const JsPDF = getJsPDF();
             if (!JsPDF) { alert('PDF library not loaded. Please refresh.'); return; }
             const doc = new JsPDF('p', 'mm', 'a4');
             if (typeof doc.autoTable !== 'function') { alert('PDF table plugin not loaded. Please refresh.'); return; }
