@@ -5158,7 +5158,7 @@
             const months = []; let cy = fromYear, cm2 = fromMonth;
             while (cy < toYear || (cy === toYear && cm2 <= toMonth)) { months.push({year:cy, month:cm2}); cm2++; if (cm2>12){cm2=1;cy++;} }
 
-            let runningTotal = 0, totalWorkingAll = 0, totalHolidaysAll = 0, totalSundaysAll = 0, totalDaysAll = 0, bodyHTML = '';
+            let runningTotal = 0, totalWorkingAll = 0, totalHolidaysAll = 0, totalSundaysAll = 0, totalDaysAll = 0, totalManualHolidaysAll = 0, bodyHTML = '';
             const autoExcSun = document.getElementById('auto-sundays')?.checked !== false;
 
             for (const { year:y, month:m } of months) {
@@ -5169,6 +5169,7 @@
                 let excludedDays = manualHolidays.length;
                 if (autoExcSun) sundayDates.forEach(d => { if (!manualHolDates.has(d)) excludedDays++; });
                 totalHolidaysAll += excludedDays;
+                totalManualHolidaysAll += manualHolidays.length;
                 const workingDays = daysInMonth - excludedDays;
                 runningTotal += workingDays; totalWorkingAll += workingDays;
                 const isCurrent = (y === new Date().getFullYear() && m === new Date().getMonth()+1);
@@ -5186,7 +5187,7 @@
             bodyHTML += `<tr class="total-row">
                 <td class="month-name" style="font-weight:800;color:#10b981;text-align:left;"><i class="fas fa-sigma" style="margin-right:6px;"></i> TOTAL (${months.length} months)</td>
                 <td>${totalDaysAll}</td><td>${totalSundaysAll}</td>
-                <td>${Math.max(0,totalHolidaysAll-totalSundaysAll)}</td>
+                <td>${totalManualHolidaysAll}</td>
                 <td><span class="wd-badge" style="font-size:17px;">${totalWorkingAll}</span></td>
                 <td><span class="running-total-badge" style="font-size:17px;">${totalWorkingAll}</span></td>
             </tr>`;
